@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react'
 import { useLoader } from '@react-three/fiber'
+import React, { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
 function Ground({ url = '/heightmap.png' }) {

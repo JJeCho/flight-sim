@@ -62,7 +62,7 @@ function FlightPhysics({ planeApi, forcesRef }) {
     const liftCoefficient = computeLiftCoefficient(aoaSigned);
 
     const airDensity = 1.225;
-    const wingArea = 17; 
+    const wingArea = 10; 
     const liftForceMagnitude = 0.5 * airDensity * speed ** 2 * wingArea * liftCoefficient;
 
     const liftDirectionLocal = new Vector3(0, 1, 0);

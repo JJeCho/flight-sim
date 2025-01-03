@@ -1,10 +1,10 @@
 // PlaneModel.js
-import React, { forwardRef, useEffect } from 'react';
-import { useGLTF } from '@react-three/drei';
 import { useBox } from '@react-three/cannon';
+import { useGLTF } from '@react-three/drei';
+import React, { forwardRef, useEffect } from 'react';
+import { AxesHelper } from 'three';
 import FlightPhysics from './FlightPhysics';
 import PlaneControls from './PlaneControls';
-import { AxesHelper } from 'three';
 
 const PlaneModel = forwardRef(({ onApiReady,forcesRef, ...props }, ref) => {
   const { nodes, materials } = useGLTF('/models/scene.gltf');

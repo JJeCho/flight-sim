@@ -1,6 +1,6 @@
 // PlaneParameterDisplay.js
 import React, { useEffect, useState } from 'react';
-import { Quaternion, Euler } from 'three';
+import { Euler, Quaternion } from 'three';
 
 function PlaneParameterDisplay({ planeApi, forcesRef }) {
     const [position, setPosition] = useState([0, 0, 0]);
@@ -38,7 +38,7 @@ function PlaneParameterDisplay({ planeApi, forcesRef }) {
 
   const speed = Math.sqrt(
     velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2
-  );
+  )*3.6;
 
   const [qx, qy, qz, qw] = quaternion;
   const quaternionObj = new Quaternion(qx, qy, qz, qw);
