@@ -53,7 +53,7 @@ function App() {
           shadow-mapSize-height={2048}
         />
         <Sky sunPosition={[100, 20, 100]} />
-
+        <Ground heightMapUrl={"/heightmap.png"} />
         <Physics gravity={[0, -9.81, 0]} step="fixed" iterations={10}>
           <Debug color="black" scale={1.1}>
             <PlaneModel
@@ -62,7 +62,6 @@ function App() {
               position={[0, 20, 0]}
               forcesRef={forcesRef}
             />
-            <Ground heightMapUrl={"/heightmap.png"} />
             <Boundary position={[0, 0, -1000]} rotation={[0, 0, 0]} />
             <Boundary position={[0, 0, 1000]} rotation={[0, Math.PI, 0]} />
             <Boundary position={[-1000, 0, 0]} rotation={[0, Math.PI / 2, 0]} />

@@ -1,126 +1,85 @@
-import React, { useRef, useEffect, useMemo } from 'react';
-import { useLoader } from '@react-three/fiber';
-import { useHeightfield } from '@react-three/cannon';
-import * as THREE from 'three';
+import React, { useRef, useEffect } from 'react'
+import { useLoader } from '@react-three/fiber'
+import * as THREE from 'three'
 
-function Ground({ heightMapUrl }) {
-  const heightMap = useLoader(THREE.TextureLoader, heightMapUrl);
-  const ref = useRef();
-  const physicsRef = useRef();
+function Ground({ url = '/heightmap.png' }) {
+  const geometryRef = useRef()
 
-  const heightMultiplier = 15;
-
-  const [heightMatrix, elementSize, planeWidth, planeHeight] = useMemo(() => {
-    if (!heightMap || !heightMap.image) return [[], 1, 1, 1];
-
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-
-    const width = heightMap.image.width;
-    const height = heightMap.image.height;
-
-    canvas.width = width;
-    canvas.height = height;
-    context.drawImage(heightMap.image, 0, 0, width, height);
-
-    const imageData = context.getImageData(0, 0, width, height);
-    const pixels = imageData.data;
-
-    const matrix = [];
-
-    for (let y = 0; y < height; y++) {
-      const row = [];
-      for (let x = 0; x < width; x++) {
-        const pixelIndex = (y * width + x) * 4;
-        const heightValue = pixels[pixelIndex] / 255;
-        row.push(heightValue * heightMultiplier);
-      }
-      matrix.push(row);
-    }
-
-    const planeHeight = 1000;
-    const imageAspectRatio = width / height;
-    const planeWidth = planeHeight * imageAspectRatio;
-
-    const elementSize = planeWidth / (width - 1);
-
-    return [matrix, elementSize, planeWidth, planeHeight];
-  }, [heightMap]);
-
-  const [heightfieldRef] = useHeightfield(
-    () => ({
-      args: [heightMatrix, { elementSize }],
-      rotation: [Math.PI / 2, 0, 0],
-      position: [-500, 0, -500],
-      type: 'Static',
-    }),
-    physicsRef
-  );
+  // Load heightmap as a texture
+  const heightMap = useLoader(THREE.TextureLoader, url)
 
   useEffect(() => {
-    if (!ref.current || !heightMap.image) return;
+    if (!heightMap?.image) return
 
-    const geometry = ref.current;
-    const image = heightMap.image;
+    // Create an offscreen canvas to access pixel data
+    const image = heightMap.image
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(image, 0, 0)
+    
+    // Extract pixel data
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
-    const widthSegments = geometry.parameters.widthSegments;
-    const heightSegments = geometry.parameters.heightSegments;
+    // Access our plane geometry
+    const geometry = geometryRef.current
+    if (!geometry) return
 
-    const vertices = geometry.attributes.position.array;
-    const colors = [];
+    const positions = geometry.attributes.position.array
+    const widthSegments = geometry.parameters.widthSegments
+    const heightSegments = geometry.parameters.heightSegments
 
-    const width = image.width;
-    const height = image.height;
+    // The plane has (widthSegments+1)*(heightSegments+1) vertices.
+    // Rows and cols reflect the vertex grid count.
+    const rows = heightSegments + 1
+    const cols = widthSegments + 1
 
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d');
-    context.drawImage(image, 0, 0, width, height);
+    // Loop through all vertices in the plane
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        // Each vertex has an x, y, z => 3 positions
+        const vertexIndex = (i * cols + j) * 3
 
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    const pixels = imageData.data;
+        // Map the vertex to a pixel in the image
+        // (j / (cols - 1)) and (i / (rows - 1)) go from 0 -> 1 across width/height
+        const x = Math.floor((j / (cols - 1)) * (canvas.width - 1))
+        const y = Math.floor((i / (rows - 1)) * (canvas.height - 1))
 
-    for (let i = 0, j = 0; i < vertices.length; i += 3, j++) {
-      const xi = j % (widthSegments + 1);
-      const yi = Math.floor(j / (widthSegments + 1));
+        // Each pixel has 4 components: RGBA
+        const pixelIndex = (y * canvas.width + x) * 4
+        const r = imageData.data[pixelIndex]
+        const g = imageData.data[pixelIndex + 1]
+        const b = imageData.data[pixelIndex + 2]
+        // Optionally, you could also use the alpha channel at imageData.data[pixelIndex + 3]
 
-      const xImg = Math.floor((xi / widthSegments) * (width - 1));
-      const yImg = Math.floor((yi / heightSegments) * (height - 1));
+        // Convert color to a grayscale value
+        const gray = (r + g + b) / 3
 
-      const pixelIndex = (yImg * width + xImg) * 4;
-      const heightValue = pixels[pixelIndex] / 255;
+        // Scale the height (adjust as needed)
+        const heightValue = (gray / 255) * 100
 
-      vertices[i + 1] = heightValue * heightMultiplier;
-
-      const darkGreen = [0.0, 0.392, 0.0];
-      const lightGreen = [0.565, 0.933, 0.565];
-
-      const colorR = darkGreen[0] + heightValue * (lightGreen[0] - darkGreen[0]);
-      const colorG = darkGreen[1] + heightValue * (lightGreen[1] - darkGreen[1]);
-      const colorB = darkGreen[2] + heightValue * (lightGreen[2] - darkGreen[2]);
-
-      colors.push(colorR, colorG, colorB);
+        // Update the plane’s Z coordinate
+        positions[vertexIndex + 2] = heightValue
+      }
     }
 
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geometry.attributes.position.needsUpdate = true;
-    geometry.computeVertexNormals();
-  }, [heightMap, ref]);
+    // Inform Three.js that positions changed
+    geometry.attributes.position.needsUpdate = true
+    // Recalculate normals for correct lighting
+    geometry.computeVertexNormals()
+  }, [heightMap])
 
   return (
-    <>
-      <mesh ref={heightfieldRef} position={[0, 0, 0]}>
-        <planeGeometry args={[planeWidth, planeHeight, 256, 256]} />
-        <meshBasicMaterial visible={false} />
-      </mesh>
-
-      <mesh position={[0, 0, 0]}>
-        <planeGeometry ref={ref} args={[planeWidth, planeHeight, 256, 256]} />
-        <meshStandardMaterial vertexColors />
-      </mesh>
-    </>
-  );
+    <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      {/* 
+        Create a plane geometry with enough subdivisions to accurately represent 
+        the heightmap. Increasing segments yields a more detailed mesh.
+      */}
+      <planeGeometry ref={geometryRef} args={[2000, 2000, 256, 256]} />
+      <meshStandardMaterial color="lightgreen" wireframe={false} />
+    </mesh>
+  )
 }
 
-export default Ground;
+export default Ground
